@@ -19,6 +19,10 @@
 /**
  * enum sgx_encl_page_desc - defines bits for an enclave page's descriptor
  * %SGX_ENCL_PAGE_TCS:			The page is a TCS page.
+ * %SGX_ENCL_PAGE_RECLAIMED:		The page is in the process of being
+ *					reclaimed.
+ * %SGX_ENCL_PAGE_VA_OFFSET_MASK:	Holds the offset in the Version Array
+ *					(VA) page for a swapped page.
  * %SGX_ENCL_PAGE_ADDR_MASK:		Holds the virtual address of the page.
  *
  * The page address for SECS is zero and is used by the subsystem to recognize
@@ -27,19 +31,23 @@
 enum sgx_encl_page_desc {
 	SGX_ENCL_PAGE_TCS		= BIT(0),
 	/* Bits 11:3 are available when the page is not swapped. */
+	SGX_ENCL_PAGE_RECLAIMED		= BIT(3),
+	SGX_ENCL_PAGE_VA_OFFSET_MASK	= GENMASK_ULL(11, 3),
 	SGX_ENCL_PAGE_ADDR_MASK		= PAGE_MASK,
 };
 
 #define SGX_ENCL_PAGE_ADDR(page) \
 	((page)->desc & SGX_ENCL_PAGE_ADDR_MASK)
-#define SGX_ENCL_PAGE_VA_OFFSET(encl_page) \
+#define SGX_ENCL_PAGE_VA_OFFSET(page) \
 	((page)->desc & SGX_ENCL_PAGE_VA_OFFSET_MASK)
-#define SGX_ENCL_PAGE_IS_SECS(page) ((page) == &(page)->encl->secs)
+#define SGX_ENCL_PAGE_INDEX(page) \
+	PFN_DOWN((page)->desc - (page)->encl->base)
 
 struct sgx_encl_page {
 	unsigned long desc;
 	unsigned long vm_max_prot_bits;
 	struct sgx_epc_page *epc_page;
+	struct sgx_va_page *va_page;
 	struct sgx_encl *encl;
 };
 
@@ -74,27 +82,51 @@ struct sgx_encl {
 	unsigned long base;
 	unsigned long size;
 	unsigned long ssaframesize;
+	struct list_head va_pages;
 	struct radix_tree_root page_tree;
 	struct sgx_encl_page secs;
 	cpumask_t cpumask;
 };
 
+#define SGX_VA_SLOT_COUNT 512
+
+struct sgx_va_page {
+	struct sgx_epc_page *epc_page;
+	DECLARE_BITMAP(slots, SGX_VA_SLOT_COUNT);
+	struct list_head list;
+};
+
 extern const struct vm_operations_struct sgx_vm_ops;
 
-enum sgx_encl_mm_iter {
-	SGX_ENCL_MM_ITER_DONE		= 0,
-	SGX_ENCL_MM_ITER_NEXT		= 1,
-	SGX_ENCL_MM_ITER_RESTART	= 2,
-};
+static inline pgoff_t sgx_pcmd_index(struct sgx_encl *encl,
+				     pgoff_t page_index)
+{
+	return PFN_DOWN(encl->size) + 1 + (page_index >> 5);
+}
+
+static inline unsigned long sgx_pcmd_offset(pgoff_t page_index)
+{
+	return (page_index & (PAGE_SIZE / sizeof(struct sgx_pcmd) - 1)) *
+	       sizeof(struct sgx_pcmd);
+}
 
 int sgx_encl_find(struct mm_struct *mm, unsigned long addr,
 		  struct vm_area_struct **vma);
 void sgx_encl_destroy(struct sgx_encl *encl);
 void sgx_encl_release(struct kref *ref);
-pgoff_t sgx_encl_get_index(struct sgx_encl_page *page);
 struct page *sgx_encl_get_backing_page(struct sgx_encl *encl, pgoff_t index);
 int sgx_encl_mm_add(struct sgx_encl *encl, struct mm_struct *mm);
+int sgx_encl_test_and_clear_young(struct mm_struct *mm,
+				  struct sgx_encl_page *page);
+struct sgx_encl_page *sgx_encl_reserve_page(struct sgx_encl *encl,
+					    unsigned long addr);
+
+struct sgx_epc_page *sgx_alloc_va_page(void);
+unsigned int sgx_alloc_va_slot(struct sgx_va_page *va_page);
+void sgx_free_va_slot(struct sgx_va_page *va_page, unsigned int offset);
+bool sgx_va_page_full(struct sgx_va_page *va_page);
 
 int sgx_encl_may_map(struct sgx_encl *encl, unsigned long start,
 		     unsigned long end, unsigned long vm_prot_bits);
+
 #endif /* _X86_ENCL_H */
