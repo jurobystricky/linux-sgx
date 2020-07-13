@@ -122,9 +122,9 @@ static nokprobe_inline bool trace_kprobe_module_exist(struct trace_kprobe *tk)
 	if (!p)
 		return true;
 	*p = '\0';
-	mutex_lock(&module_mutex);
+	module_lock();
 	ret = !!find_module(tk->symbol);
-	mutex_unlock(&module_mutex);
+	module_unlock();
 	*p = ':';
 
 	return ret;

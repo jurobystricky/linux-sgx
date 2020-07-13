@@ -705,6 +705,16 @@ static inline bool is_livepatch_module(struct module *mod)
 bool is_module_sig_enforced(void);
 void set_module_sig_enforced(void);
 
+static inline void module_lock(void)
+{
+	mutex_lock(&module_mutex);
+}
+
+static inline void module_unlock(void)
+{
+	mutex_unlock(&module_mutex);
+}
+
 #else /* !CONFIG_MODULES... */
 
 static inline struct module *__module_address(unsigned long addr)
@@ -850,6 +860,14 @@ static inline
 void *dereference_module_function_descriptor(struct module *mod, void *ptr)
 {
 	return ptr;
+}
+
+static inline void module_lock(void)
+{
+}
+
+static inline void module_unlock(void)
+{
 }
 
 #endif /* CONFIG_MODULES */
