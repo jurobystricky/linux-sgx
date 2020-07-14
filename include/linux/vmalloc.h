@@ -249,4 +249,21 @@ pcpu_free_vm_areas(struct vm_struct **vms, int nr_vms)
 int register_vmap_purge_notifier(struct notifier_block *nb);
 int unregister_vmap_purge_notifier(struct notifier_block *nb);
 
+/*
+ * These functions can be optionally implemented by an arch in order to
+ * provide specialized functions for allocating trampoline code.
+ */
+
+#ifdef CONFIG_ARCH_HAS_TEXT_ALLOC
+/*
+ * Allocate memory to be used for trampoline code.
+ */
+void *text_alloc(unsigned long size);
+
+/*
+ * Free memory returned from text_alloc().
+ */
+void text_free(void *region);
+#endif /* CONFIG_ARCH_HAS_TEXT_ALLOC */
+
 #endif /* _LINUX_VMALLOC_H */
