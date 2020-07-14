@@ -40,6 +40,7 @@
 #include <asm/cacheflush.h>
 #include <asm/errno.h>
 #include <linux/uaccess.h>
+#include <linux/vmalloc.h>
 
 #define KPROBE_HASH_BITS 6
 #define KPROBE_TABLE_SIZE (1 << KPROBE_HASH_BITS)
@@ -111,12 +112,20 @@ enum kprobe_slot_state {
 
 void __weak *alloc_insn_page(void)
 {
+#ifdef CONFIG_ARCH_HAS_TEXT_ALLOC
+	return text_alloc(PAGE_SIZE);
+#else
 	return module_alloc(PAGE_SIZE);
+#endif
 }
 
 void __weak free_insn_page(void *page)
 {
+#ifdef CONFIG_ARCH_HAS_TEXT_ALLOC
+	text_free(page);
+#else
 	module_memfree(page);
+#endif
 }
 
 struct kprobe_insn_cache kprobe_insn_slots = {
