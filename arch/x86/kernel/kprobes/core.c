@@ -423,7 +423,7 @@ void *alloc_insn_page(void)
 {
 	void *page;
 
-	page = module_alloc(PAGE_SIZE);
+	page = text_alloc(PAGE_SIZE);
 	if (!page)
 		return NULL;
 
@@ -446,7 +446,7 @@ void *alloc_insn_page(void)
 /* Recover page to RW mode before releasing it */
 void free_insn_page(void *page)
 {
-	module_memfree(page);
+	text_free(page);
 }
 
 static int arch_copy_kprobe(struct kprobe *p)
