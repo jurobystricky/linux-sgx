@@ -141,7 +141,7 @@ bool encl_load(const char *path, struct encl *encl)
 
 	ret = open("/dev/sgx/enclave", O_RDWR);
 	if (ret < 0) {
-		fprintf(stderr, "Unable to open /dev/sgx\n");
+		fprintf(stderr, "Unable to open /dev/sgx/enclave\n");
 		goto err;
 	}
 
